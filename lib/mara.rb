@@ -1,9 +1,15 @@
 # Mara
 require 'net/http'
 require 'uri'
+require 'open-uri'
 
 class Mara < Processing::App
   load_library 'moon'
+
+  load_java_library 'fast_xs'
+  load_java_library 'hpricot_scan'
+  load_ruby_library 'hpricot'
+  
 
   def setup
     frame_rate 30
@@ -12,12 +18,13 @@ class Mara < Processing::App
 
     @font = create_font("Calibri", 80, true)
     @timesize = 300
-    @timeloc = { :x => 665, :y => 355 }
+    @timeloc = { :x => 700, :y => 400 }
     @timewidth = 0
     @mousestart = 0
     @mousedrag = 0
     @prev = 0
-    @moon_phase = get_moon_phase
+    puts get_sun_data.inspect
+    puts get_moon_data
   end
   
   def draw
@@ -64,9 +71,33 @@ class Mara < Processing::App
   end
 
   private
+  def get_sun_data
+    #puts open('http://www.wolframalpha.com/input/?i=toronto+sun').read
+    html = open('http://www.wolframalpha.com/input/?i=toronto+sun').read
+    #puts  h.search('script').inner_html.inspect
+    html =~ /sunrise \| ([\d: A-Za-z]*).*?sunset \| ([\d: A-Za-z]*).*?duration of daylight \| (\d*)/
+    {:sunrise => $~[1], :sunset => $~[2], :duration_of_daylight => $~[3]}
+  end
+
+  def get_moon_data
+    html = open('http://www.wolframalpha.com/input/?i=toronto+moon').read
+    puts html
+    html =~ /asynchronousPod\('pod.jsp\?id=(\w+?)&/
+    puts $~.inspect
+    sid = $~[1]
+
+    #puts  h.search('script').inner_html.inspect
+    html =~ /moon rise \|\s*([^\|]*?)\s*\|\s*([\w \d,]*)/
+    moonrise = Time.parse($~[2] + " " + $~[1])
+    html =~ /moon set \|\s*([^\|]*?)\s*\|\s*([\w \d,]*)/
+    moonset = Time.parse($~[2] + " " + $~[1])
+
+    {:moonrise => moonrise, :moonset => moonset}
+  end
+
   def get_moon_phase
     p = Astro::Moon.phase
-puts p.inspect
+
     p.illumination.to_f
   end
 
@@ -76,7 +107,7 @@ puts p.inspect
     no_stroke()
     ellipse(600, 150, size, size)
     fill 0
-    umbra_x = 600 - (@moon_phase * size)
+    umbra_x = 600 - (get_moon_phase * size)
 
     ellipse(umbra_x, 150-1, size+1, size+1)
   end
